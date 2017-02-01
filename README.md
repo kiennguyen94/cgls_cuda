@@ -11,7 +11,7 @@ by using the [Conjugate Gradient method](http://en.wikipedia.org/wiki/Conjugate_
 
 ####Performance
 
-CGLS was run on two of the largest non-square matrices in [Tim Davis' sparse matrix collection](http://www.cise.ufl.edu/research/sparse/matrices) on an Nvidia Tesla K40c. 
+CGLS was run on two of the largest non-square matrices in [Tim Davis' sparse matrix collection](http://www.cise.ufl.edu/research/sparse/matrices) on an Nvidia Tesla K40c.
 
 | Matrix name              |  Dimension       | Non-zeros      | Iter. | Time  | Time / (iter * nnz) |
 |--------------------------|:----------------:|----------------|-------|-------|---------------------|
@@ -43,7 +43,7 @@ The arguments are (note that all arrays must be in GPU memory):
   + `(double) tol`: Relative tolerance to which the problem should be solved (recommended 1e-6).
   + `(int) maxit`: Maximum number of iterations before the solver stops (recommended 20-100, but it depends heavily on the condition number of `A`).
   + `(bool) quiet`: Disables output to the console if set to `true`.
-  
+
 ####Example Usage - Abstract Operator
 
 You may also want to use CGLS if you have an abstract operator that computes `Ax` and `A^Tx`. To do so, define a GEMV-like functor that inherits from the abstract class
@@ -55,7 +55,7 @@ struct Gemv {
   virtual int operator()(char op, const T alpha, const T *x, const T beta, T *y) = 0;
 };
 ```
-When invoked, the functor should compute `y := alpha*op(A)x + beta*y`, where `op` is either `'n'` or `'t'`, corresponding to `Ax` and `A^Tx` (or `A^Hx` in the complex case). The functor should return a non-zero value if unsuccessful and 0 if the operation succeeded. Once the functor is defined, you can invoke `CGLS` with 
+When invoked, the functor should compute `y := alpha*op(A)x + beta*y`, where `op` is either `'n'` or `'t'`, corresponding to `Ax` and `A^Tx` (or `A^Hx` in the complex case). The functor should return a non-zero value if unsuccessful and 0 if the operation succeeded. Once the functor is defined, you can invoke `CGLS` with
 
 ```
 cgls::Solve(cublas_handle, A, m, n, b, x, shift, tol, maxit, quiet);
@@ -66,7 +66,15 @@ The arguments are:
   + `(cublasHandle_t) cublas_handle`: An initialized cuBLAS handle.
   + `(const cgls::Gemv<double>&) A`: An instance of the abstract operator.
   + ... (the rest of the arguments are the same as above).
-  
+
+####Dense Matrices
+Usage:
+```
+int flag = cgls::Solve<YOUR_TYPE>(A, m, n, b, x, shift, tol, maxiter, false);
+```
+Where `A` is a dense matrix.
+
+Sample code is available in `cgls_test.cu`, function `test5()`.
 ####Return values
 
 Upon exit, CGLS will have modified the `x` argument and return an `int` flag corresponding to one of the error codes
