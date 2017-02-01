@@ -1,6 +1,6 @@
 #include <stdlib.h>
 #include <cmath>
-
+#include <iostream>
 #include "cgls.cuh"
 
 // Define real type.
@@ -158,6 +158,84 @@ void test2() {
   cudaFree(cind_d);
 }
 
+template<typename T>
+void printarr(T* arr, const int N){
+    for (int i = 0; i < N; i++){
+        std::cout<<arr[i]<<' ';
+    }
+    std::cout<<'\n';
+}
+
+// Test with dense matrix
+void test5() {
+
+    int n = 3;
+    int m = 3;
+
+    // Initialize variables.
+    real_t A[] = {4.0,5.0,0.0,0.0,8.0,1.0,8.0,7.0,4.0};
+    real_t b[] = {69.0,76.0,127.0};
+    real_t x_true[] = {6.0, 9.0, 4.0};
+    real_t x_[] = {0.0,0.0,0.0};
+
+    double shift = 0;
+    real_t* x = new real_t[3];
+    real_t tol = 1e-6;
+    int maxiter = 300;
+
+    // Device memory
+    real_t *A_d, *b_d, *x_d;
+    cudaMalloc((void**)&A_d, sizeof(real_t)*(m*n));
+    cudaMalloc((void**)&b_d, sizeof(real_t)*m);
+    cudaMalloc((void**)&x_d, sizeof(real_t)*n);
+
+
+    // Copy A and b to device
+    cudaMemcpy(A_d, A, sizeof(real_t)*(m*n), cudaMemcpyHostToDevice);
+    cudaMemcpy(b_d, b, sizeof(real_t)*m, cudaMemcpyHostToDevice);
+    cudaMemcpy(x_d, x_, sizeof(real_t)*n, cudaMemcpyHostToDevice);
+
+    // Initialize functor that does A(x)
+    // cgls::MV<real_t> MVA(A_d, m, n);
+
+    /*
+    Test code
+    */
+    // real_t *test_d;
+    // real_t *test = new real_t[m];
+    // cudaMalloc((void**)&test_d, sizeof(real_t)*m);
+    // cudaMemcpy(x_d, x_true, sizeof(real_t)*n, cudaMemcpyHostToDevice);
+    //
+    // cgls::MV<real_t> myMV(A_d, m, n);
+    // int status = myMV('n', 1.0, x_d, 0.0, test_d);
+    // std::cout<<"stuff\n";
+    //
+    // cudaMemcpy(test, test_d, sizeof(real_t)*m, cudaMemcpyDeviceToHost);
+    // printarr(test, m);
+    // cudaFree(test_d);
+    /*
+    End test code
+    */
+
+    // cublas handle
+    cublasHandle_t handle;
+    cublasStatus_t stat;
+    stat = cublasCreate(&handle);
+
+    // Solve
+    int flag = cgls::Solve<real_t>(A_d, m, n, b_d, x_d,
+        shift, tol, maxiter, false);
+
+    // Copy back to host
+    cudaMemcpy(x_, x_d, sizeof(real_t)*n, cudaMemcpyDeviceToHost);
+    printarr(x_, n);
+    std::cout<<"flag "<<flag<<'\n';
+
+    cudaFree(A_d);
+    cudaFree(b_d);
+    cudaFree(x_d);
+}
+
 // Test complex value entries.
 void test3() {
   // Initialize variables.
@@ -231,7 +309,37 @@ void test3() {
   cudaFree(cind_d);
 }
 
-
+// template <typename T>
+// struct Gemv {
+//   virtual ~Gemv() { };
+//   virtual int operator()(char op, const T alpha, const T *x, const T beta, T *y) = 0;
+// };
+//
+// // Derived class that computes y = Ax
+// template <typename T>
+// struct myGemv : Gemv<T>{
+//     cublasHandle_t handle;
+//     // Pointer to A
+//     const T* A;
+//     int m;
+//     int n;
+//     // TODO finish the constructor
+//     myGemv(const T *A, int m, int n) : A(A), m(m), n(n){
+//         cublasCreate(handle);
+//     }
+//     ~myGemv(){
+//         cublasDestroy(handle);
+//     }
+//     int operator()(char op, const T alpha, const T *x, const T beta, T *y) const;
+// };
+//
+// template<>
+// inline int myGemv<double>::operator()(char op, const double alpha,
+// const double alpha, const double *x, const double beta, double *y) const{
+//     cublasStatus_t status = cublasDgemv(handle, OpToCublasOp(op), m, n, &alpha,
+//         A, m, x, 1, &beta, y, 1);
+//     return status != CUBLAS_STATUS_SUCCESS;
+// }
 // Test CGLS on larger random matrix.
 void test4() {
   // Reset random seed.
@@ -368,9 +476,9 @@ void test4() {
 
 // Run tests.
 int main() {
-  test1();
-  test2();
-  test3();
-  test4();
+  // test1();
+  // test2();
+  // test3();
+  // test4();
+  test5();
 }
-

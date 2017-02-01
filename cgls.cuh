@@ -179,6 +179,54 @@ inline cusparseOperation_t OpToCusparseCxOp(char op) {
       CUSPARSE_OPERATION_NON_TRANSPOSE : CUSPARSE_OPERATION_CONJUGATE_TRANSPOSE;
 }
 
+inline cublasOperation_t OpToCublasOp(char op){
+    assert(op == 'n' || op == 'N' || op == 't' || op == 'T');
+    return (op == 'n' || op == 'N') ?
+        CUBLAS_OP_N : CUBLAS_OP_T;
+}
+
+// Derived class that computes y = Ax
+template <typename T>
+class MV : Gemv<T>{
+    private:
+    cublasHandle_t handle;
+    // Pointer to A
+    const T* A;
+    int m;
+    int n;
+
+    public:
+    // TODO finish the constructor DONE
+    MV(const T *A, int m, int n) : A(A), m(m), n(n){
+        cublasCreate(&handle);
+    }
+    ~MV(){
+        cublasDestroy(handle);
+    }
+    int operator()(char op, const T alpha, const T *x, const T beta, T *y) const;
+};
+
+template<>
+inline int MV<double>::operator()(char op, const double alpha,
+    const double *x, const double beta, double *y) const{
+    char op_;
+    if (op == 'n') op_ = 't';
+    if (op == 't') op_ = 'n';
+    cublasStatus_t status = cublasDgemv(handle, OpToCublasOp(op_), m, n, &alpha,
+        A, m, x, 1, &beta, y, 1);
+    return status != CUBLAS_STATUS_SUCCESS;
+}
+
+// Derive class that computes y = ATx
+// template<typename T>
+// class MVT: Gemv<T>{
+// private:
+//     MV<T> A;
+//     MV<T> At;
+// public:
+//     MVT(const T *A, int m, int n) : A()
+// }
+
 // Sparse matrix-vector multiply templates.
 template <typename T, CGLS_ORD O>
 class Spmv : Gemv<T> {
@@ -675,7 +723,22 @@ int Solve(const T *val_a, const INT *ptr_a, const INT *ind_a, const T *val_at,
   return status;
 }
 
+template<typename T>
+int Solve(const T* A, const INT m, const INT n,
+const T *b, T *x, const double shift, const double tol,
+const int maxit, bool quiet){
+
+    cublasHandle_t handle;
+    cublasCreate(&handle);
+    CGLS_CUDA_CHECK_ERR();
+    MV<T> myMV(A, m, n);
+    int status = Solve(handle, myMV, m, n, b, x, shift, tol, maxit, quiet);
+
+    cublasDestroy(handle);
+    CGLS_CUDA_CHECK_ERR();
+    return status;
+}
+
 }  // namespace cgls
 
 #endif  // CGLS_CUH_
-
