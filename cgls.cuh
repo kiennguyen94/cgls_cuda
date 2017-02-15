@@ -212,8 +212,19 @@ inline int MV<double>::operator()(char op, const double alpha,
     char op_;
     if (op == 'n') op_ = 't';
     if (op == 't') op_ = 'n';
-    cublasStatus_t status = cublasDgemv(handle, OpToCublasOp(op_), m, n, &alpha,
-        A, m, x, 1, &beta, y, 1);
+    cublasStatus_t status = cublasDgemv(handle, OpToCublasOp(op_), n, m, &alpha,
+        A, n, x, 1, &beta, y, 1);
+    return status != CUBLAS_STATUS_SUCCESS;
+}
+
+template<>
+inline int MV<float>::operator()(char op, const float alpha, const float *x,
+    const float beta, float *y) const{
+        char op_;
+        if (op == 'n') op_ = 't';
+        if (op == 't') op_ = 'n';
+        cublasStatus_t status = cublasSgemv(handle, OpToCublasOp(op_), n, m,
+    &alpha, A, n, x, 1, &beta, y, 1);
     return status != CUBLAS_STATUS_SUCCESS;
 }
 
@@ -723,6 +734,7 @@ int Solve(const T *val_a, const INT *ptr_a, const INT *ind_a, const T *val_at,
   return status;
 }
 
+// Dense CGLS
 template<typename T>
 int Solve(const T* A, const INT m, const INT n,
 const T *b, T *x, const double shift, const double tol,
